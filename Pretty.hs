@@ -88,9 +88,76 @@ import While
 
 
 prettyExp :: Exp -> String
-prettyExp e = ""   -- replace this line by your solution
+
+prettyExp e = pretty e "empty" 0
+
+
+-- For just a Variable
+-- pretty :: (Num t, Eq t) => Exp -> [Char] -> t -> [Char]
+pretty (Var name) _ _ = name
+-- For just a Constant
+pretty (Const integer) before _
+                        | before == "uminus" = "(" ++ show integer ++ ")"
+                        | otherwise = show integer
+-- For Unary Minus
+pretty (Uminus expr) before _
+                          | before == "uminus" = "(-" ++ pretty expr "uminus" 0 ++ ")" 
+                          | otherwise = "-" ++ pretty expr "uminus" 0
+
+-- For Times and Division
+pretty (Binop Times x y) before loc
+                                  | before == "uminus" || (before == "timesdiv" && loc == 1) = "(" ++ pretty x "timesdiv" 0 ++ "*" ++ pretty y "timesdiv" 1 ++ ")"
+                                  | otherwise = pretty x "timesdiv" 0 ++ "*" ++ pretty y "timesdiv" 1
+
+pretty (Binop Div x y) before loc
+                                | before == "uminus" || (before == "timesdiv" && loc == 1) = "(" ++ pretty x "timesdiv" 0 ++ "/" ++ pretty y "timesdiv" 1 ++ ")"
+                                | otherwise = pretty x "timesdiv" 0 ++ "/" ++ pretty y "timesdiv" 1
+
+-- For Plus and Minus
+pretty  (Binop Plus x y) before loc
+                                  | before == "uminus" || before == "timesdiv" || (before == "plusminus" && loc == 1) = "(" ++ pretty x "plusminus" 0 ++ "+" ++ pretty y "plusminus" 1 ++ ")"
+                                  | otherwise = pretty x  "plusminus" 0++ "+" ++ pretty y "plusminus" 1
+
+pretty (Binop Minus x y) before loc
+                                  | before == "uminus" || before == "timesdiv" || (before == "plusminus" && loc == 1) = "(" ++ pretty x "plusminus" 0 ++ "-" ++ pretty y "plusminus" 1 ++ ")"
+                                  | otherwise = pretty x "plusminus" 0 ++ "-" ++ pretty y "plusminus" 1 
+                                    
+-- For Comparisons (Less Than, Less Than and Equal, Equal)
+pretty (Binop Less x y) before loc
+                                | before == "empty" || before == "and" || before == "or" || (before == "comparison" && loc == 0) = pretty x "comparison" 0 ++ "<" ++ pretty y "comparison" 1 
+                                | otherwise = "(" ++ pretty x "comparison" 0 ++ "<" ++ pretty y "comparison" 1 ++ ")"
+
+pretty (Binop LessEq x y) before loc
+                                  | before == "empty" || before == "and" || before == "or" || (before == "comparison" && loc == 0) = pretty x "comparison" 0 ++ "<=" ++ pretty y "comparison" 1
+                                  | otherwise = "(" ++ pretty x "comparison" 0 ++ "<=" ++ pretty y "comparison" 1 ++ ")"
+
+pretty (Binop Equal x y) before loc
+                                  | before == "empty" || before == "and" || before == "or" || (before == "comparison" && loc == 0) = pretty x "comparison" 0 ++ "==" ++ pretty y "comparison" 1
+                                  | otherwise = "(" ++ pretty x "comparison" 0 ++ "==" ++ pretty y "comparison" 1 ++ ")"
+
+-- For And & Or
+pretty (Binop And x y) before loc
+                                | before == "empty" || (before == "and" && loc == 0) || before == "or" = pretty x "and" 0 ++ "&&" ++ pretty y "and" 1
+                                | otherwise = "(" ++ pretty x "and" 0 ++ "&&" ++ pretty y "and" 1 ++ ")"
+
+pretty (Binop Or x y) before loc
+                              | before == "empty" || (before == "or" && loc == 0) = pretty x "or" 0 ++ "||" ++ pretty y "or" 1
+                              | otherwise = "(" ++ pretty x "or" 0 ++ "||" ++ pretty y "or" 1 ++ ")"
+
 
 
 prettyCom :: Com -> String
 
-prettyCom c = ""   -- replace this line by your solution
+prettyCom c = prettyC c "empty"
+
+prettyC (Seq comp) before
+                  | null comp = "{}"
+                  | otherwise = "{\n" ++ enlist comp ++ "\n}" where
+                                         enlist comp | length comp == 1 = prettyC (head comp) "seq"
+                                                     | otherwise = " " ++ prettyC (head comp) "seq" ++ ";\n " ++ enlist (tail comp)
+
+prettyC (Assign name expr) before = name ++ "=" ++ prettyExp expr
+
+prettyC (If cond expr1 expr2) before = "if " ++ prettyExp cond ++ " then\n " ++ prettyC expr1 "if" ++ " \nelse " ++ prettyC expr2 "if"
+
+prettyC (While cond expr) before = "while " ++ prettyExp cond ++ " do\n " ++ prettyC expr "while"
